@@ -315,6 +315,9 @@ func newMCPServer(name string, serverConfig *MCPProxyConfigV2, clientConfig *MCP
 	if clientConfig.Options.LogEnabled.OrElse(false) {
 		serverOpts = append(serverOpts, server.WithLogging())
 	}
+	if ch := clientConfig.Options.CallHook; ch != nil && len(ch.Command) > 0 {
+		serverOpts = append(serverOpts, server.WithToolHandlerMiddleware(newCallHookMiddleware(name, ch)))
+	}
 	mcpServer := server.NewMCPServer(
 		name,
 		serverConfig.Version,

@@ -61,11 +61,25 @@ type ToolFilterConfig struct {
 	List []string       `json:"list,omitempty"`
 }
 
+// CallHookConfig gates the tools named in RequireFor behind an external
+// command. The command receives the tool-call request as JSON on stdin (and
+// MCP_SERVER / MCP_TOOL env vars); exit code 0 approves the call, any non-zero
+// exit, spawn error, or timeout denies it (fail-closed). Unlike ToolFilter,
+// which decides tool visibility once at startup, CallHook runs per invocation,
+// so it can implement human-in-the-loop approval, audit-with-veto, policy
+// checks, etc.
+type CallHookConfig struct {
+	Command    []string `json:"command,omitempty"`    // argv; stdin = request JSON
+	RequireFor []string `json:"requireFor,omitempty"` // exact tool names to gate
+	TimeoutSec int      `json:"timeoutSec,omitempty"` // hook timeout; 0 = default (120s)
+}
+
 type OptionsV2 struct {
 	PanicIfInvalid optional.Field[bool] `json:"panicIfInvalid"`
 	LogEnabled     optional.Field[bool] `json:"logEnabled"`
 	AuthTokens     []string             `json:"authTokens,omitempty"`
 	ToolFilter     *ToolFilterConfig    `json:"toolFilter,omitempty"`
+	CallHook       *CallHookConfig      `json:"callHook,omitempty"`
 	Disabled       bool                 `json:"disabled,omitempty"`
 }
 
@@ -213,6 +227,9 @@ func load(path string, insecure, expandEnv bool, httpHeaders string, httpTimeout
 		}
 		if !clientConfig.Options.LogEnabled.Present() {
 			clientConfig.Options.LogEnabled = conf.McpProxy.Options.LogEnabled
+		}
+		if clientConfig.Options.CallHook == nil {
+			clientConfig.Options.CallHook = conf.McpProxy.Options.CallHook
 		}
 	}
 
