@@ -4,8 +4,8 @@
 # MCP servers via npx/uvx. When the proxy only fronts *remote* (SSE/streamable)
 # servers, none of that is needed — it just forwards HTTP. This image is for
 # that case: a static binary on debian-slim. A shell is kept on purpose because
-# callHook execs an external approval command inside this container (and the
-# notify-send hook will later want libnotify here).
+# callHook execs an external approval command inside this container, and hako's
+# vault unseal runs `age` here (pty-wrapped via `script`, from bsdutils).
 FROM golang:1.25.5 AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
@@ -15,7 +15,7 @@ RUN make build
 
 FROM debian:bookworm-slim
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates \
+ && apt-get install -y --no-install-recommends ca-certificates age \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/build/mcp-proxy /usr/local/bin/mcp-proxy
 ENTRYPOINT ["/usr/local/bin/mcp-proxy"]
