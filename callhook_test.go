@@ -94,3 +94,33 @@ func TestCallHook_Timeout_FailsClosed(t *testing.T) {
 		t.Fatalf("expected timeout reason, got %q", txt)
 	}
 }
+
+func TestCallHook_Wildcard_GatesEverything(t *testing.T) {
+	called := false
+	mw := newCallHookMiddleware("srv", &CallHookConfig{Command: []string{"false"}, RequireFor: []string{"*"}})
+	res, err := mw(okHandler(&called))(context.Background(), callReq("any_unlisted_tool"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if called {
+		t.Fatal(`"*" should gate every tool; an unlisted tool must hit the hook (and be denied)`)
+	}
+	if !res.IsError {
+		t.Fatal("denied call should be IsError")
+	}
+}
+
+func TestCallHook_Wildcard_ApproveReachesNext(t *testing.T) {
+	called := false
+	mw := newCallHookMiddleware("srv", &CallHookConfig{Command: []string{"true"}, RequireFor: []string{"*"}})
+	res, err := mw(okHandler(&called))(context.Background(), callReq("any_tool"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !called {
+		t.Fatal("exit 0 should approve and reach next even under wildcard")
+	}
+	if res.IsError {
+		t.Fatal("approved call should not be an error")
+	}
+}

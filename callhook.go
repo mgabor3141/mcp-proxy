@@ -18,7 +18,8 @@ const defaultCallHookTimeout = 120 * time.Second
 
 // newCallHookMiddleware returns a tool-handler middleware that gates the tools
 // listed in cfg.RequireFor behind an external command. Tools not in the list
-// pass straight through. For gated tools the command is run with the tool-call
+// pass straight through; a single "*" entry gates every tool (default-deny
+// posture, with the hook as the allowlist). For gated tools the command is run with the tool-call
 // request marshaled as JSON on stdin and MCP_SERVER/MCP_TOOL in the
 // environment. Exit code 0 approves the call; any non-zero exit, spawn error,
 // or timeout denies it (fail-closed).
@@ -27,8 +28,13 @@ const defaultCallHookTimeout = 120 * time.Second
 // so the model receives a readable reason as tool output and can adapt, rather
 // than seeing an opaque transport failure.
 func newCallHookMiddleware(serverName string, cfg *CallHookConfig) server.ToolHandlerMiddleware {
+	gateAll := false
 	gated := make(map[string]struct{}, len(cfg.RequireFor))
 	for _, name := range cfg.RequireFor {
+		if name == "*" {
+			gateAll = true
+			continue
+		}
 		gated[name] = struct{}{}
 	}
 	timeout := defaultCallHookTimeout
@@ -38,8 +44,10 @@ func newCallHookMiddleware(serverName string, cfg *CallHookConfig) server.ToolHa
 
 	return func(next server.ToolHandlerFunc) server.ToolHandlerFunc {
 		return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			if _, ok := gated[req.Params.Name]; !ok {
-				return next(ctx, req)
+			if !gateAll {
+				if _, ok := gated[req.Params.Name]; !ok {
+					return next(ctx, req)
+				}
 			}
 
 			payload, err := json.Marshal(req.Params)

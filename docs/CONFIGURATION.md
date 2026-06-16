@@ -91,7 +91,8 @@ Common fields:
   audit-with-veto, policy checks, etc.
   - `command` ([]string): Program + args to run before forwarding the call.
   - `requireFor` ([]string): Exact tool names that require approval. Tools not
-    listed pass straight through (no hook overhead).
+    listed pass straight through (no hook overhead). A single `"*"` entry gates
+    *every* tool (default-deny), leaving the hook as the sole allowlist.
   - `timeoutSec` (int): Max seconds to wait for the hook. Default `120`.
 
   The command receives the tool-call request as JSON on **stdin**, plus

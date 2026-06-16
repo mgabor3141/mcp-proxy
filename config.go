@@ -70,7 +70,7 @@ type ToolFilterConfig struct {
 // checks, etc.
 type CallHookConfig struct {
 	Command    []string `json:"command,omitempty"`    // argv; stdin = request JSON
-	RequireFor []string `json:"requireFor,omitempty"` // exact tool names to gate
+	RequireFor []string `json:"requireFor,omitempty"` // exact tool names to gate; "*" gates all
 	TimeoutSec int      `json:"timeoutSec,omitempty"` // hook timeout; 0 = default (120s)
 }
 
