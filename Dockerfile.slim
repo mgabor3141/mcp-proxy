@@ -1,0 +1,22 @@
+# Remote-proxy-only image: just the Go binary, no python/node.
+#
+# The stock Dockerfile bundles uv-python + node so the proxy can spawn *stdio*
+# MCP servers via npx/uvx. When the proxy only fronts *remote* (SSE/streamable)
+# servers, none of that is needed — it just forwards HTTP. This image is for
+# that case: a static binary on debian-slim. A shell is kept on purpose because
+# callHook execs an external approval command inside this container (and the
+# notify-send hook will later want libnotify here).
+FROM golang:1.25.5 AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN make build
+
+FROM debian:bookworm-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /app/build/mcp-proxy /usr/local/bin/mcp-proxy
+ENTRYPOINT ["/usr/local/bin/mcp-proxy"]
+CMD ["--config", "/config/config.json"]
