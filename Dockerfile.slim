@@ -5,7 +5,8 @@
 # servers, none of that is needed — it just forwards HTTP. This image is for
 # that case: a static binary on debian-slim. A shell is kept on purpose because
 # callHook execs an external approval command inside this container, and hako's
-# vault unseal runs `age` here (pty-wrapped via `script`, from bsdutils).
+# sealed-boot script sources the unlocked env (the host decrypts the vault, so
+# no crypto tooling is needed here).
 FROM golang:1.25.5 AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
@@ -15,7 +16,7 @@ RUN make build
 
 FROM debian:bookworm-slim
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates age \
+ && apt-get install -y --no-install-recommends ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/build/mcp-proxy /usr/local/bin/mcp-proxy
 ENTRYPOINT ["/usr/local/bin/mcp-proxy"]
