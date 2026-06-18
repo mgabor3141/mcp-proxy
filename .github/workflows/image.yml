@@ -1,0 +1,42 @@
+name: image
+
+# Build the remote-proxy image (Dockerfile.slim) on every commit and push it to
+# GHCR, tagged by commit SHA. Consumers (e.g. hako) pin the resulting immutable
+# @sha256 digest -- no semver releases, just commit-hash identity.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/mgabor3141/mcp-proxy
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.slim
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+      - run: |
+          echo "## Image published" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`ghcr.io/mgabor3141/mcp-proxy@${{ steps.build.outputs.digest }}\`" >> "$GITHUB_STEP_SUMMARY"
